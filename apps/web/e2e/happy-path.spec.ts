@@ -54,7 +54,7 @@ test.describe.serial('Happy path: full matching flow', () => {
 
     await expect(page1).toHaveURL(/\/lobby/)
     // Wait for the recruitment list to refresh and show User1's recruitment
-    await expect(page1.getByText(nick1)).toBeVisible({ timeout: 10_000 })
+    await expect(page1.getByRole('main').getByText(nick1)).toBeVisible({ timeout: 10_000 })
   })
 
   test('User2 logs in', async () => {

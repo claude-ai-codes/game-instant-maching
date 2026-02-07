@@ -9,13 +9,20 @@ const router = useRouter()
 
 const game = ref('valorant')
 const region = ref('jp')
-const startTime = ref(new Date(Date.now() + 15 * 60 * 1000).toISOString().slice(0, 16))
+const futureDate = new Date(Date.now() + 15 * 60 * 1000)
+const startTime = ref(
+  `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}-${String(futureDate.getDate()).padStart(2, '0')}T${String(futureDate.getHours()).padStart(2, '0')}:${String(futureDate.getMinutes()).padStart(2, '0')}`
+)
 const desiredRole = ref('')
 const memo = ref('')
 const error = ref('')
 
 async function handleCreate() {
   error.value = ''
+  if (new Date(startTime.value) < new Date()) {
+    error.value = '開始時刻は現在より後を指定してください'
+    return
+  }
   try {
     await store.createRecruitment({
       game: game.value,

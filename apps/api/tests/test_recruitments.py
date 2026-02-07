@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from httpx import AsyncClient
 
@@ -110,3 +110,16 @@ async def test_duplicate_open_recruitment(auth_client: AsyncClient):
         },
     )
     assert resp.status_code == 400
+
+
+async def test_create_recruitment_past_start_time(auth_client: AsyncClient):
+    past_time = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    resp = await auth_client.post(
+        "/api/recruitments",
+        json={
+            "game": "valorant",
+            "region": "jp",
+            "start_time": past_time,
+        },
+    )
+    assert resp.status_code == 422
