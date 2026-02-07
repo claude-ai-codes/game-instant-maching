@@ -1,0 +1,22 @@
+{
+  "nickname": {
+    "min_length": 2,
+    "max_length": 20
+  },
+  "message": {
+    "max_length": 500
+  },
+  "memo": {
+    "max_length": 200
+  },
+  "desired_role": {
+    "max_length": 50
+  },
+  "report_reason": {
+    "max_length": 500
+  },
+  "recruitment_expiry_minutes": 60,
+  "room_expiry_hours": 24,
+  "message_ttl_hours": 24,
+  "start_time_window_minutes": 15
+}

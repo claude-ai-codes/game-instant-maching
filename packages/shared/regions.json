@@ -1,0 +1,8 @@
+[
+  {"id": "jp", "name": "日本"},
+  {"id": "asia", "name": "アジア"},
+  {"id": "na", "name": "北米 (NA)"},
+  {"id": "eu", "name": "ヨーロッパ (EU)"},
+  {"id": "oce", "name": "オセアニア"},
+  {"id": "other", "name": "その他"}
+]

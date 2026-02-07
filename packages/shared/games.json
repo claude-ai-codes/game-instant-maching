@@ -1,0 +1,12 @@
+[
+  {"id": "valorant", "name": "VALORANT"},
+  {"id": "league_of_legends", "name": "League of Legends"},
+  {"id": "apex_legends", "name": "Apex Legends"},
+  {"id": "overwatch2", "name": "Overwatch 2"},
+  {"id": "fortnite", "name": "Fortnite"},
+  {"id": "splatoon3", "name": "Splatoon 3"},
+  {"id": "street_fighter6", "name": "Street Fighter 6"},
+  {"id": "pokemon_unite", "name": "Pokemon UNITE"},
+  {"id": "marvel_rivals", "name": "Marvel Rivals"},
+  {"id": "other", "name": "その他"}
+]
