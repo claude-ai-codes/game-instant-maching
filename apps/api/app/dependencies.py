@@ -1,0 +1,27 @@
+import uuid
+
+from fastapi import Cookie, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.database import get_db
+from app.models.user import User
+
+
+async def get_current_user(
+    session_token: str | None = Cookie(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    if not session_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    result = await db.execute(
+        select(User).where(User.session_token == session_token, User.is_active.is_(True))
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")
+    return user
+
+
+async def get_current_user_id(user: User = Depends(get_current_user)) -> uuid.UUID:
+    return user.id
