@@ -110,7 +110,7 @@ test.describe.serial('Happy path: full matching flow', () => {
     await expect(page2.getByText('よろしく')).toBeVisible()
   })
 
-  test('User1 closes the room', async () => {
+  test('User1 requests to close the room', async () => {
     // Verify User2's reply arrived via polling
     await expect(page1.getByText('よろしく')).toBeVisible({ timeout: 10_000 })
 
@@ -118,13 +118,28 @@ test.describe.serial('Happy path: full matching flow', () => {
     page1.once('dialog', (dialog) => dialog.accept())
     await page1.getByRole('button', { name: 'ルームを閉じる' }).click()
 
-    // Should navigate to feedback page
-    await expect(page1).toHaveURL(/\/feedback/, { timeout: 10_000 })
-    await expect(page1.getByText('フィードバック')).toBeVisible()
+    // Should show pending close message (mutual close)
+    await expect(page1.getByText('相手の同意を待っています')).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('User2 agrees to close the room', async () => {
+    // User2 should see the close button and agree
+    page2.once('dialog', (dialog) => dialog.accept())
+    await page2.getByRole('button', { name: 'ルームを閉じる' }).click()
+
+    // Both agreed — room should close, User2 navigates to feedback
+    await expect(page2).toHaveURL(/\/feedback/, { timeout: 10_000 })
+    await expect(page2.getByText('フィードバック')).toBeVisible()
+  })
+
+  test('User1 navigates to feedback after room closes', async () => {
+    // User1 should see the room is now closed (via WS or polling, 10s interval)
+    await expect(page1.getByText('クローズ済み')).toBeVisible({ timeout: 15_000 })
+    await page1.getByRole('link', { name: 'フィードバック' }).click()
+    await expect(page1).toHaveURL(/\/feedback/)
   })
 
   test('User1 submits feedback', async () => {
-    // Click thumbs up (良かった)
     await page1.getByRole('button', { name: '良かった' }).click()
 
     await expect(page1.getByText('フィードバックを送信しました')).toBeVisible()
@@ -133,13 +148,8 @@ test.describe.serial('Happy path: full matching flow', () => {
   })
 
   test('User2 submits feedback', async () => {
-    // Navigate to feedback page — room status is now closed, so
-    // the "フィードバック" link should appear after polling
-    await expect(page2.getByText('クローズ済み')).toBeVisible({ timeout: 10_000 })
-    await page2.getByRole('link', { name: 'フィードバック' }).click()
-
-    await expect(page2).toHaveURL(/\/feedback/)
     await page2.getByRole('button', { name: '良かった' }).click()
+
     await expect(page2.getByText('フィードバックを送信しました')).toBeVisible()
     await page2.getByRole('link', { name: 'ロビーに戻る' }).click()
     await expect(page2).toHaveURL(/\/lobby/)

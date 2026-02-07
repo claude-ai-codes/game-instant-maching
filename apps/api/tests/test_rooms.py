@@ -56,8 +56,14 @@ async def test_get_messages(auth_client: AsyncClient, second_auth_client: AsyncC
 
 async def test_close_room(auth_client: AsyncClient, second_auth_client: AsyncClient):
     room_id, _, _ = await _create_room(auth_client, second_auth_client)
+    # Both users must close for mutual close
     resp = await auth_client.post(f"/api/rooms/{room_id}/close")
     assert resp.status_code == 200
+    assert resp.json()["status"] == "pending_close"
+
+    resp = await second_auth_client.post(f"/api/rooms/{room_id}/close")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "closed"
 
     resp = await auth_client.get(f"/api/rooms/{room_id}")
     assert resp.json()["status"] == "closed"
@@ -65,7 +71,9 @@ async def test_close_room(auth_client: AsyncClient, second_auth_client: AsyncCli
 
 async def test_feedback(auth_client: AsyncClient, second_auth_client: AsyncClient):
     room_id, user1_id, user2_id = await _create_room(auth_client, second_auth_client)
+    # Mutual close
     await auth_client.post(f"/api/rooms/{room_id}/close")
+    await second_auth_client.post(f"/api/rooms/{room_id}/close")
 
     resp = await auth_client.post(
         f"/api/rooms/{room_id}/feedback",
@@ -101,6 +109,8 @@ async def test_cannot_message_closed_room(
     auth_client: AsyncClient, second_auth_client: AsyncClient
 ):
     room_id, _, _ = await _create_room(auth_client, second_auth_client)
+    # Mutual close
     await auth_client.post(f"/api/rooms/{room_id}/close")
+    await second_auth_client.post(f"/api/rooms/{room_id}/close")
     resp = await auth_client.post(f"/api/rooms/{room_id}/messages", json={"content": "hi"})
     assert resp.status_code == 400

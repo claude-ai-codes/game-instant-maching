@@ -33,6 +33,7 @@ export interface RoomMember {
   user_id: string
   nickname: string
   role: string | null
+  ready_to_close: boolean
 }
 
 export interface Message {

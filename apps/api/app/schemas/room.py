@@ -24,6 +24,7 @@ class RoomMemberResponse(BaseModel):
     user_id: uuid.UUID
     nickname: str
     role: str | None
+    ready_to_close: bool = False
 
     model_config = {"from_attributes": True}
 

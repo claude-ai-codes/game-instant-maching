@@ -21,6 +21,14 @@ const otherMember = computed(() => {
   return roomStore.room?.members.find(m => m.user_id !== auth.user?.id)
 })
 
+const myMember = computed(() => {
+  return roomStore.room?.members.find(m => m.user_id === auth.user?.id)
+})
+
+const pendingClose = computed(() => {
+  return myMember.value?.ready_to_close === true && roomStore.room?.status === 'active'
+})
+
 // WebSocket for real-time updates
 const { on } = useWebSocket()
 
@@ -32,6 +40,12 @@ on('new_message', async (data) => {
 })
 
 on('room_closed', async (data) => {
+  if (data.room_id === roomId) {
+    await roomStore.fetchRoom(roomId)
+  }
+})
+
+on('close_requested', async (data) => {
   if (data.room_id === roomId) {
     await roomStore.fetchRoom(roomId)
   }
@@ -74,8 +88,17 @@ async function send() {
 
 async function handleClose() {
   if (!confirm('ルームを閉じますか？（1戦終了後に閉じてください）')) return
-  await roomStore.closeRoom(roomId)
-  router.push({ name: 'feedback', params: { id: roomId } })
+  try {
+    const result = await roomStore.closeRoom(roomId)
+    if (result?.status === 'closed') {
+      router.push({ name: 'feedback', params: { id: roomId } })
+    } else {
+      // Refetch room to update ready_to_close states
+      await roomStore.fetchRoom(roomId)
+    }
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'クローズに失敗しました'
+  }
 }
 
 function formatTime(iso: string) {
@@ -104,8 +127,14 @@ function formatTime(iso: string) {
         >
           {{ roomStore.room.status === 'active' ? 'アクティブ' : 'クローズ済み' }}
         </span>
+        <span
+          v-if="pendingClose"
+          class="text-xs px-2 py-1 rounded bg-yellow-800 text-yellow-200"
+        >
+          相手の同意を待っています...
+        </span>
         <button
-          v-if="roomStore.room.status === 'active'"
+          v-else-if="roomStore.room.status === 'active'"
           @click="handleClose"
           class="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm transition"
         >

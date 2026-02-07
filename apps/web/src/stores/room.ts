@@ -24,8 +24,10 @@ export const useRoomStore = defineStore('room', () => {
   }
 
   async function closeRoom(roomId: string) {
-    await api('/api/rooms/' + roomId + '/close', { method: 'POST' })
-    await fetchRoom(roomId)
+    const result = await api<{ detail: string; status: string }>('/api/rooms/' + roomId + '/close', {
+      method: 'POST',
+    })
+    return result
   }
 
   async function submitFeedback(roomId: string, toUserId: string, rating: 'thumbs_up' | 'thumbs_down') {
