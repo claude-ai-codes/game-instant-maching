@@ -23,5 +23,17 @@ async def get_current_user(
     return user
 
 
+async def get_optional_user(
+    session_token: str | None = Cookie(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    if not session_token:
+        return None
+    result = await db.execute(
+        select(User).where(User.session_token == session_token, User.is_active.is_(True))
+    )
+    return result.scalar_one_or_none()
+
+
 async def get_current_user_id(user: User = Depends(get_current_user)) -> uuid.UUID:
     return user.id

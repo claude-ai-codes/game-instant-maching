@@ -8,8 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_optional_user
 from app.models.base import utcnow
+from app.models.block import Block
 from app.models.recruitment import Recruitment, RecruitmentStatus
 from app.models.room import Room, RoomMember, RoomStatus
 from app.models.user import User
@@ -31,6 +32,7 @@ router = APIRouter(prefix="/api/recruitments", tags=["recruitments"])
 
 @router.get("", response_model=list[RecruitmentResponse])
 async def list_recruitments(
+    user: User | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[RecruitmentResponse]:
     now = utcnow()
@@ -40,6 +42,16 @@ async def list_recruitments(
         .where(Recruitment.status == RecruitmentStatus.open, Recruitment.expires_at > now)
         .order_by(Recruitment.created_at.asc())
     )
+
+    # Filter out recruitments from blocked/blocking users
+    if user:
+        blocked_ids = select(Block.blocked_id).where(Block.blocker_id == user.id)
+        blocker_ids = select(Block.blocker_id).where(Block.blocked_id == user.id)
+        stmt = stmt.where(
+            Recruitment.user_id.not_in(blocked_ids),
+            Recruitment.user_id.not_in(blocker_ids),
+        )
+
     result = await db.execute(stmt)
     rows = result.all()
     return [
