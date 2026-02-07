@@ -1,12 +1,61 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { api } from '@/composables/useApi'
 
 const auth = useAuthStore()
 const router = useRouter()
 const nickname = ref('')
 const error = ref('')
+const loading = ref(false)
+const turnstileSiteKey = ref('')
+const turnstileToken = ref('')
+let turnstileWidgetId: string | null = null
+
+onMounted(async () => {
+  try {
+    const config = await api<{ turnstile_site_key: string }>('/api/auth/config')
+    if (config.turnstile_site_key) {
+      turnstileSiteKey.value = config.turnstile_site_key
+      loadTurnstileScript()
+    }
+  } catch {
+    // Config fetch failed; proceed without CAPTCHA
+  }
+})
+
+function loadTurnstileScript() {
+  if (document.querySelector('script[src*="turnstile"]')) {
+    renderWidget()
+    return
+  }
+  const script = document.createElement('script')
+  script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad'
+  script.async = true
+  ;(window as unknown as Record<string, () => void>).onTurnstileLoad = () => renderWidget()
+  document.head.appendChild(script)
+}
+
+function renderWidget() {
+  if (!window.turnstile || !turnstileSiteKey.value) return
+  const container = document.getElementById('turnstile-widget')
+  if (!container) return
+  turnstileWidgetId = window.turnstile.render(container, {
+    sitekey: turnstileSiteKey.value,
+    callback: (token: string) => { turnstileToken.value = token },
+    'error-callback': () => { turnstileToken.value = '' },
+    'expired-callback': () => { turnstileToken.value = '' },
+    theme: 'dark',
+  })
+}
+
+function resetWidget() {
+  turnstileToken.value = ''
+  if (window.turnstile && turnstileWidgetId) {
+    window.turnstile.reset(turnstileWidgetId)
+  }
+}
 
 async function handleLogin() {
   error.value = ''
@@ -14,11 +63,19 @@ async function handleLogin() {
     error.value = 'ニックネームは2〜20文字で入力してください'
     return
   }
+  if (turnstileSiteKey.value && !turnstileToken.value) {
+    error.value = 'CAPTCHAの認証を完了してください'
+    return
+  }
+  loading.value = true
   try {
-    await auth.login(nickname.value)
+    await auth.login(nickname.value, turnstileToken.value || undefined)
     router.push({ name: 'lobby' })
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'ログインに失敗しました'
+    resetWidget()
+  } finally {
+    loading.value = false
   }
 }
 </script>
@@ -41,12 +98,14 @@ async function handleLogin() {
             autofocus
           />
         </div>
+        <div v-if="turnstileSiteKey" id="turnstile-widget" class="flex justify-center"></div>
         <p v-if="error" class="text-red-400 text-sm">{{ error }}</p>
         <button
           type="submit"
-          class="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition"
+          :disabled="loading"
+          class="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg font-medium transition"
         >
-          はじめる
+          {{ loading ? 'ログイン中...' : 'はじめる' }}
         </button>
       </form>
     </div>

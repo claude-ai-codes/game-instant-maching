@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     room_expiry_hours: int = 24
     message_ttl_hours: int = 24
 
+    turnstile_secret_key: str = ""
+    turnstile_site_key: str = ""
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

@@ -3,6 +3,7 @@ import { useRecruitmentStore } from '@/stores/recruitment'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import { usePolling } from '@/composables/usePolling'
+import { useWebSocket } from '@/composables/useWebSocket'
 import { gameName, regionName } from '@/utils/data'
 import { ref } from 'vue'
 
@@ -12,7 +13,20 @@ const router = useRouter()
 const joining = ref<string | null>(null)
 const error = ref('')
 
-usePolling(() => store.fetchRecruitments(), 5000)
+// WebSocket for real-time updates, with slower polling fallback
+const { on } = useWebSocket()
+
+on('recruitment_update', () => {
+  store.fetchRecruitments()
+})
+
+on('match_created', (data) => {
+  if (data.room_id) {
+    router.push({ name: 'room', params: { id: data.room_id as string } })
+  }
+})
+
+usePolling(() => store.fetchRecruitments(), 15000)
 
 async function join(id: string) {
   error.value = ''

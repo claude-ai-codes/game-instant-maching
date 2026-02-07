@@ -3,6 +3,7 @@ import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRoomStore } from '@/stores/room'
 import { useAuthStore } from '@/stores/auth'
+import { useWebSocket } from '@/composables/useWebSocket'
 import { gameName, regionName } from '@/utils/data'
 
 const route = useRoute()
@@ -20,14 +21,31 @@ const otherMember = computed(() => {
   return roomStore.room?.members.find(m => m.user_id !== auth.user?.id)
 })
 
+// WebSocket for real-time updates
+const { on } = useWebSocket()
+
+on('new_message', async (data) => {
+  if (data.room_id === roomId) {
+    await roomStore.fetchMessages(roomId)
+    scrollToBottom()
+  }
+})
+
+on('room_closed', async (data) => {
+  if (data.room_id === roomId) {
+    await roomStore.fetchRoom(roomId)
+  }
+})
+
 onMounted(async () => {
   await roomStore.fetchRoom(roomId)
   await roomStore.fetchMessages(roomId)
   scrollToBottom()
+  // Slower fallback polling with WS active
   pollTimer = setInterval(async () => {
     await roomStore.fetchMessages(roomId)
     await roomStore.fetchRoom(roomId)
-  }, 3000)
+  }, 10000)
 })
 
 onUnmounted(() => {

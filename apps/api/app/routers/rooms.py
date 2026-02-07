@@ -21,6 +21,7 @@ from app.schemas.room import (
 )
 from app.services.moderation import check_content
 from app.utils.validators import sanitize_text
+from app.websocket import manager
 
 router = APIRouter(prefix="/api/rooms", tags=["rooms"])
 
@@ -127,7 +128,7 @@ async def send_message(
     await db.commit()
     await db.refresh(msg)
 
-    return MessageResponse(
+    response = MessageResponse(
         id=msg.id,
         room_id=msg.room_id,
         user_id=msg.user_id,
@@ -135,6 +136,18 @@ async def send_message(
         created_at=msg.created_at,
         nickname=user.nickname,
     )
+
+    # Notify room members via WebSocket
+    members_result = await db.execute(
+        select(RoomMember.user_id).where(RoomMember.room_id == room_id)
+    )
+    member_ids = [row[0] for row in members_result.all()]
+    await manager.send_to_users(
+        member_ids,
+        {"type": "new_message", "data": {"room_id": str(room_id)}},
+    )
+
+    return response
 
 
 @router.post("/{room_id}/close")
@@ -150,6 +163,17 @@ async def close_room(
 
     room.status = RoomStatus.closed
     await db.commit()
+
+    # Notify room members via WebSocket
+    members_result = await db.execute(
+        select(RoomMember.user_id).where(RoomMember.room_id == room_id)
+    )
+    member_ids = [row[0] for row in members_result.all()]
+    await manager.send_to_users(
+        member_ids,
+        {"type": "room_closed", "data": {"room_id": str(room_id)}},
+    )
+
     return {"detail": "Room closed"}
 
 

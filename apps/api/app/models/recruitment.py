@@ -25,6 +25,7 @@ class Recruitment(Base, TimestampMixin):
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     desired_role: Mapped[str | None] = mapped_column(String(50), nullable=True)
     memo: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     status: Mapped[RecruitmentStatus] = mapped_column(
         Enum(RecruitmentStatus), default=RecruitmentStatus.open, nullable=False, index=True
     )

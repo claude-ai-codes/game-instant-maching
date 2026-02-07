@@ -9,6 +9,7 @@ from app.models.base import utcnow
 from app.models.block import Block
 from app.models.recruitment import Recruitment, RecruitmentStatus
 from app.models.room import Room, RoomMember, RoomStatus
+from app.websocket import manager
 
 
 async def find_match_and_create_room(
@@ -92,5 +93,17 @@ async def find_match_and_create_room(
     db.add_all([owner_member, joiner_member])
     await db.commit()
     await db.refresh(room)
+
+    # Notify both users via WebSocket
+    await manager.send_to_users(
+        [locked_recruitment.user_id, joiner_id],
+        {"type": "match_created", "data": {"room_id": str(room.id)}},
+    )
+    await manager.broadcast_to_lobby(
+        {
+            "type": "recruitment_update",
+            "data": {"action": "matched", "recruitment_id": str(locked_recruitment.id)},
+        },
+    )
 
     return room

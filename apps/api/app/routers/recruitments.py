@@ -1,3 +1,4 @@
+import hashlib
 import uuid
 from datetime import timedelta
 
@@ -17,6 +18,13 @@ from app.schemas.recruitment import RecruitmentCreate, RecruitmentResponse
 from app.services.matching import find_match_and_create_room
 from app.services.moderation import check_content
 from app.utils.validators import sanitize_text, validate_game, validate_region
+from app.websocket import manager
+
+
+def _compute_ip_hash(request: Request) -> str | None:
+    if request.client:
+        return hashlib.sha256(request.client.host.encode()).hexdigest()
+    return None
 
 router = APIRouter(prefix="/api/recruitments", tags=["recruitments"])
 
@@ -80,6 +88,25 @@ async def create_recruitment(
         raise HTTPException(status_code=400, detail="You already have an open recruitment")
 
     now = utcnow()
+
+    # Fingerprint dedup: reject if same IP created same game+region within 5 min
+    ip_hash = _compute_ip_hash(request)
+    if ip_hash:
+        recent_dup = await db.execute(
+            select(Recruitment).where(
+                Recruitment.ip_hash == ip_hash,
+                Recruitment.game == body.game,
+                Recruitment.region == body.region,
+                Recruitment.status == RecruitmentStatus.open,
+                Recruitment.created_at > now - timedelta(minutes=5),
+            )
+        )
+        if recent_dup.scalar_one_or_none():
+            raise HTTPException(
+                status_code=429,
+                detail="Similar recruitment created recently. Please wait a few minutes.",
+            )
+
     recruitment = Recruitment(
         user_id=user.id,
         game=body.game,
@@ -87,6 +114,7 @@ async def create_recruitment(
         start_time=body.start_time,
         desired_role=sanitize_text(body.desired_role) if body.desired_role else None,
         memo=sanitize_text(body.memo) if body.memo else None,
+        ip_hash=ip_hash,
         status=RecruitmentStatus.open,
         expires_at=now + timedelta(minutes=settings.recruitment_expiry_minutes),
     )
@@ -94,7 +122,16 @@ async def create_recruitment(
     await db.commit()
     await db.refresh(recruitment)
 
-    return RecruitmentResponse.model_validate({**recruitment.__dict__, "nickname": user.nickname})
+    response = RecruitmentResponse.model_validate(
+        {**recruitment.__dict__, "nickname": user.nickname}
+    )
+
+    await manager.broadcast_to_lobby({
+        "type": "recruitment_update",
+        "data": {"action": "created", "recruitment_id": str(recruitment.id)},
+    })
+
+    return response
 
 
 @router.post("/{recruitment_id}/join")
@@ -136,4 +173,10 @@ async def cancel_recruitment(
 
     recruitment.status = RecruitmentStatus.cancelled
     await db.commit()
+
+    await manager.broadcast_to_lobby({
+        "type": "recruitment_update",
+        "data": {"action": "cancelled", "recruitment_id": str(recruitment.id)},
+    })
+
     return {"detail": "Cancelled"}
