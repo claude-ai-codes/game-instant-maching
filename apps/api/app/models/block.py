@@ -14,4 +14,6 @@ class Block(Base, TimestampMixin):
     blocker_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id"), nullable=False, index=True
     )
-    blocked_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    blocked_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id"), nullable=False, index=True
+    )
