@@ -31,6 +31,10 @@ async def create_block(
     if body.blocked_id == user.id:
         raise HTTPException(status_code=400, detail="Cannot block yourself")
 
+    blocked_user = await db.get(User, body.blocked_id)
+    if not blocked_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     existing = await db.execute(
         select(Block).where(Block.blocker_id == user.id, Block.blocked_id == body.blocked_id)
     )

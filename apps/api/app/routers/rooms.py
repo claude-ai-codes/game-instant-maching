@@ -57,7 +57,9 @@ async def get_room(
         .where(RoomMember.room_id == room_id)
     )
     members = [
-        RoomMemberResponse(user_id=m.user_id, nickname=nickname, role=m.role)
+        RoomMemberResponse(
+            user_id=m.user_id, nickname=nickname, role=m.role, ready_to_close=m.ready_to_close
+        )
         for m, nickname in members_result.all()
     ]
 
@@ -151,7 +153,9 @@ async def send_message(
 
 
 @router.post("/{room_id}/close")
+@limiter.limit("5/minute")
 async def close_room(
+    request: Request,
     room_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -161,20 +165,42 @@ async def close_room(
         raise HTTPException(status_code=400, detail="Room is not active")
     await _check_membership(room_id, user.id, db)
 
-    room.status = RoomStatus.closed
-    await db.commit()
-
-    # Notify room members via WebSocket
-    members_result = await db.execute(
-        select(RoomMember.user_id).where(RoomMember.room_id == room_id)
+    # Get the requesting user's membership
+    my_member_result = await db.execute(
+        select(RoomMember).where(
+            RoomMember.room_id == room_id, RoomMember.user_id == user.id
+        )
     )
-    member_ids = [row[0] for row in members_result.all()]
+    my_member = my_member_result.scalar_one()
+
+    if my_member.ready_to_close:
+        raise HTTPException(status_code=400, detail="You already requested close")
+
+    my_member.ready_to_close = True
+
+    # Check if all members are ready
+    all_members_result = await db.execute(
+        select(RoomMember).where(RoomMember.room_id == room_id)
+    )
+    all_members = list(all_members_result.scalars().all())
+    member_ids = [m.user_id for m in all_members]
+    all_ready = all(m.ready_to_close for m in all_members)
+
+    if all_ready:
+        room.status = RoomStatus.closed
+        await db.commit()
+        await manager.send_to_users(
+            member_ids,
+            {"type": "room_closed", "data": {"room_id": str(room_id)}},
+        )
+        return {"detail": "Room closed", "status": "closed"}
+
+    await db.commit()
     await manager.send_to_users(
         member_ids,
-        {"type": "room_closed", "data": {"room_id": str(room_id)}},
+        {"type": "close_requested", "data": {"room_id": str(room_id), "user_id": str(user.id)}},
     )
-
-    return {"detail": "Room closed"}
+    return {"detail": "Waiting for other member to close", "status": "pending_close"}
 
 
 @router.post("/{room_id}/feedback", status_code=status.HTTP_201_CREATED)

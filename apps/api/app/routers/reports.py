@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.report import Report
+from app.models.room import Room, RoomMember
 from app.models.user import User
 from app.rate_limit import limiter
 from app.schemas.report import ReportCreate, ReportResponse
@@ -23,6 +25,25 @@ async def create_report(
 ) -> Report:
     if body.reported_id == user.id:
         raise HTTPException(status_code=400, detail="Cannot report yourself")
+
+    # Verify reported user exists
+    reported_user = await db.get(User, body.reported_id)
+    if not reported_user:
+        raise HTTPException(status_code=404, detail="Reported user not found")
+
+    # Verify room exists and reporter is a member
+    if body.room_id:
+        room = await db.get(Room, body.room_id)
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found")
+        membership = await db.execute(
+            select(RoomMember).where(
+                RoomMember.room_id == body.room_id,
+                RoomMember.user_id == user.id,
+            )
+        )
+        if not membership.scalar_one_or_none():
+            raise HTTPException(status_code=403, detail="You are not a member of this room")
 
     reason = sanitize_text(body.reason)
     check_content(reason, "reason")
