@@ -4,12 +4,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { useRoomStore } from '@/stores/room'
 import { useAuthStore } from '@/stores/auth'
 import { useWebSocket } from '@/composables/useWebSocket'
-import { gameName, regionName } from '@/utils/data'
+import { useGameStore } from '@/stores/game'
+import { regionName } from '@/utils/data'
 
 const route = useRoute()
 const router = useRouter()
 const roomStore = useRoomStore()
 const auth = useAuthStore()
+const gameStore = useGameStore()
 const roomId = route.params.id as string
 
 const newMessage = ref('')
@@ -52,6 +54,7 @@ on('close_requested', async (data) => {
 })
 
 onMounted(async () => {
+  gameStore.fetchGames()
   await roomStore.fetchRoom(roomId)
   await roomStore.fetchMessages(roomId)
   scrollToBottom()
@@ -111,7 +114,7 @@ function formatTime(iso: string) {
     <div class="flex items-center justify-between mb-4">
       <div>
         <h1 class="text-lg font-bold">
-          {{ gameName(roomStore.room.game ?? '') }} · {{ regionName(roomStore.room.region ?? '') }}
+          {{ gameStore.gameName(roomStore.room.game ?? '') }} · {{ regionName(roomStore.room.region ?? '') }}
         </h1>
         <p class="text-sm text-gray-400">
           メンバー: {{ roomStore.room.members.map(m => m.nickname).join(', ') }}
