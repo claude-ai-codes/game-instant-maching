@@ -26,10 +26,33 @@ def event_loop():
     loop.close()
 
 
+async def _seed_games(session: AsyncSession):
+    """Seed the games table with test data matching packages/shared/games.json slugs."""
+    from app.models.game import Game
+
+    games_data = [
+        ("valorant", "VALORANT", "fps"),
+        ("league_of_legends", "League of Legends", "moba"),
+        ("apex_legends", "Apex Legends", "fps"),
+        ("overwatch2", "Overwatch 2", "fps"),
+        ("fortnite", "Fortnite", "fps"),
+        ("splatoon3", "Splatoon 3", "tps"),
+        ("street_fighter6", "Street Fighter 6", "fighting"),
+        ("pokemon_unite", "Pokemon UNITE", "moba"),
+        ("marvel_rivals", "Marvel Rivals", "fps"),
+        ("other", "Other", "other"),
+    ]
+    for slug, name, category in games_data:
+        session.add(Game(slug=slug, name=name, category=category, is_active=True))
+    await session.commit()
+
+
 @pytest.fixture(autouse=True)
 async def setup_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    async with TestSessionLocal() as session:
+        await _seed_games(session)
     yield
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
