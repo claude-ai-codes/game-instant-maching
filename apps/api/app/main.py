@@ -14,7 +14,7 @@ from starlette.responses import JSONResponse
 from app.config import settings
 from app.database import get_db
 from app.rate_limit import limiter
-from app.routers import auth, blocks, games, recruitments, reports, rooms, ws
+from app.routers import admin, auth, blocks, games, recruitments, reports, rooms, ws
 from app.services.chat_cleanup import run_periodic_cleanup
 
 logging.basicConfig(level=logging.INFO)
@@ -38,10 +38,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_origin],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
 
+app.include_router(admin.router)
 app.include_router(auth.router)
 app.include_router(games.router)
 app.include_router(recruitments.router)
