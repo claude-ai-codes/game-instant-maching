@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import { useRecruitmentStore } from '@/stores/recruitment'
 import { useAuthStore } from '@/stores/auth'
+import { useGameStore } from '@/stores/game'
 import { useRouter } from 'vue-router'
+import { onMounted } from 'vue'
 import { usePolling } from '@/composables/usePolling'
 import { useWebSocket } from '@/composables/useWebSocket'
-import { gameName, regionName } from '@/utils/data'
+import { regionName, playStyleName, timeAgo } from '@/utils/data'
 import { ref } from 'vue'
 
 const store = useRecruitmentStore()
 const auth = useAuthStore()
+const gameStore = useGameStore()
 const router = useRouter()
 const joining = ref<string | null>(null)
 const error = ref('')
+
+onMounted(() => gameStore.fetchGames())
 
 // WebSocket for real-time updates, with slower polling fallback
 const { on } = useWebSocket()
@@ -77,15 +82,20 @@ function formatTime(iso: string) {
         <div class="flex items-start justify-between">
           <div>
             <div class="flex items-center gap-2 mb-1">
-              <span class="font-medium text-blue-400">{{ gameName(r.game) }}</span>
+              <span class="font-medium text-blue-400">{{ gameStore.gameName(r.game) }}</span>
               <span class="text-xs bg-gray-700 px-2 py-0.5 rounded text-gray-300">{{ regionName(r.region) }}</span>
+              <span v-if="r.play_style" class="text-xs bg-gray-700 px-2 py-0.5 rounded text-yellow-300">{{ playStyleName(r.play_style) }}</span>
+              <span v-if="r.has_microphone" class="text-xs bg-gray-700 px-2 py-0.5 rounded text-green-300">MIC</span>
             </div>
             <div class="text-sm text-gray-400">
               <span>{{ r.nickname }}</span>
+              <span v-if="r.thumbs_up_count > 0" class="ml-1 text-yellow-400">&#x1F44D;{{ r.thumbs_up_count }}</span>
               <span class="mx-2">·</span>
               <span>開始: {{ formatTime(r.start_time) }}</span>
               <span v-if="r.desired_role" class="mx-2">·</span>
               <span v-if="r.desired_role">{{ r.desired_role }}</span>
+              <span class="mx-2">·</span>
+              <span class="text-gray-500">{{ timeAgo(r.created_at) }}</span>
             </div>
             <p v-if="r.memo" class="text-sm text-gray-500 mt-1">{{ r.memo }}</p>
           </div>

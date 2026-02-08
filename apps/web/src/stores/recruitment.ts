@@ -17,6 +17,8 @@ export const useRecruitmentStore = defineStore('recruitment', () => {
     start_time: string
     desired_role?: string
     memo?: string
+    play_style?: string
+    has_microphone?: boolean
   }): Promise<Recruitment> {
     loading.value = true
     try {

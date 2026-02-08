@@ -4,6 +4,8 @@ export interface User {
   created_at: string
 }
 
+export type PlayStyle = 'casual' | 'competitive' | 'beginner_welcome'
+
 export interface Recruitment {
   id: string
   user_id: string
@@ -12,10 +14,13 @@ export interface Recruitment {
   start_time: string
   desired_role: string | null
   memo: string | null
+  play_style: PlayStyle | null
+  has_microphone: boolean
   status: 'open' | 'matched' | 'cancelled' | 'expired'
   expires_at: string
   created_at: string
   nickname: string | null
+  thumbs_up_count: number
 }
 
 export interface Room {

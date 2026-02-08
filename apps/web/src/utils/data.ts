@@ -1,4 +1,4 @@
-import type { GameOption, RegionOption } from '@/types'
+import type { GameOption, PlayStyle, RegionOption } from '@/types'
 
 export const GAMES: GameOption[] = [
   { id: 'valorant', name: 'VALORANT' },
@@ -22,10 +22,30 @@ export const REGIONS: RegionOption[] = [
   { id: 'other', name: 'その他' },
 ]
 
+export const PLAY_STYLES: { id: PlayStyle; name: string }[] = [
+  { id: 'casual', name: 'カジュアル' },
+  { id: 'competitive', name: 'ガチ' },
+  { id: 'beginner_welcome', name: '初心者歓迎' },
+]
+
 export function gameName(id: string): string {
   return GAMES.find(g => g.id === id)?.name ?? id
 }
 
 export function regionName(id: string): string {
   return REGIONS.find(r => r.id === id)?.name ?? id
+}
+
+export function playStyleName(id: PlayStyle | null): string {
+  if (!id) return ''
+  return PLAY_STYLES.find(p => p.id === id)?.name ?? id
+}
+
+export function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 1) return 'たった今'
+  if (minutes < 60) return `${minutes}分前`
+  const hours = Math.floor(minutes / 60)
+  return `${hours}時間前`
 }

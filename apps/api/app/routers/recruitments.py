@@ -3,7 +3,7 @@ import uuid
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -11,14 +11,16 @@ from app.database import get_db
 from app.dependencies import get_current_user, get_optional_user
 from app.models.base import utcnow
 from app.models.block import Block
+from app.models.feedback import Feedback, Rating
 from app.models.recruitment import Recruitment, RecruitmentStatus
 from app.models.room import Room, RoomMember, RoomStatus
 from app.models.user import User
 from app.rate_limit import limiter
 from app.schemas.recruitment import RecruitmentCreate, RecruitmentResponse
+from app.models.game import Game
 from app.services.matching import find_match_and_create_room
 from app.services.moderation import check_content
-from app.utils.validators import sanitize_text, validate_game, validate_region
+from app.utils.validators import sanitize_text, validate_region
 from app.websocket import manager
 
 
@@ -36,9 +38,26 @@ async def list_recruitments(
     db: AsyncSession = Depends(get_db),
 ) -> list[RecruitmentResponse]:
     now = utcnow()
+
+    # Subquery: thumbs_up count per user
+    thumbs_up_sub = (
+        select(
+            Feedback.to_user_id,
+            func.count().label("thumbs_up_count"),
+        )
+        .where(Feedback.rating == Rating.thumbs_up)
+        .group_by(Feedback.to_user_id)
+        .subquery()
+    )
+
     stmt = (
-        select(Recruitment, User.nickname)
+        select(
+            Recruitment,
+            User.nickname,
+            func.coalesce(thumbs_up_sub.c.thumbs_up_count, 0).label("thumbs_up_count"),
+        )
         .join(User, User.id == Recruitment.user_id)
+        .outerjoin(thumbs_up_sub, thumbs_up_sub.c.to_user_id == Recruitment.user_id)
         .where(Recruitment.status == RecruitmentStatus.open, Recruitment.expires_at > now)
         .order_by(Recruitment.created_at.asc())
     )
@@ -56,9 +75,9 @@ async def list_recruitments(
     rows = result.all()
     return [
         RecruitmentResponse.model_validate(
-            {**r.__dict__, "nickname": nickname}
+            {**r.__dict__, "nickname": nickname, "thumbs_up_count": thumbs_up_count}
         )
-        for r, nickname in rows
+        for r, nickname, thumbs_up_count in rows
     ]
 
 
@@ -70,7 +89,11 @@ async def create_recruitment(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> RecruitmentResponse:
-    if not validate_game(body.game):
+    # Validate game slug against DB
+    game_exists = await db.execute(
+        select(Game.slug).where(Game.slug == body.game, Game.is_active.is_(True))
+    )
+    if not game_exists.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Invalid game")
     if not validate_region(body.region):
         raise HTTPException(status_code=400, detail="Invalid region")
@@ -126,6 +149,8 @@ async def create_recruitment(
         start_time=body.start_time,
         desired_role=sanitize_text(body.desired_role) if body.desired_role else None,
         memo=sanitize_text(body.memo) if body.memo else None,
+        play_style=body.play_style,
+        has_microphone=body.has_microphone,
         ip_hash=ip_hash,
         status=RecruitmentStatus.open,
         expires_at=now + timedelta(minutes=settings.recruitment_expiry_minutes),

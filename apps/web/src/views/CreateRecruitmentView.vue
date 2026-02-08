@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRecruitmentStore } from '@/stores/recruitment'
-import { GAMES, REGIONS } from '@/utils/data'
+import { useGameStore } from '@/stores/game'
+import { REGIONS, PLAY_STYLES } from '@/utils/data'
+import type { PlayStyle } from '@/types'
 
 const store = useRecruitmentStore()
+const gameStore = useGameStore()
 const router = useRouter()
+
+onMounted(() => gameStore.fetchGames())
 
 const game = ref('valorant')
 const region = ref('jp')
@@ -15,6 +20,8 @@ const startTime = ref(
 )
 const desiredRole = ref('')
 const memo = ref('')
+const playStyle = ref<PlayStyle | ''>('')
+const hasMicrophone = ref(false)
 const error = ref('')
 
 async function handleCreate() {
@@ -30,6 +37,8 @@ async function handleCreate() {
       start_time: new Date(startTime.value).toISOString(),
       desired_role: desiredRole.value || undefined,
       memo: memo.value || undefined,
+      play_style: playStyle.value || undefined,
+      has_microphone: hasMicrophone.value,
     })
     router.push({ name: 'lobby' })
   } catch (e: unknown) {
@@ -45,7 +54,7 @@ async function handleCreate() {
       <div>
         <label class="block text-sm text-gray-400 mb-1">ゲーム</label>
         <select v-model="game" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white">
-          <option v-for="g in GAMES" :key="g.id" :value="g.id">{{ g.name }}</option>
+          <option v-for="g in gameStore.games" :key="g.slug" :value="g.slug">{{ g.name_ja ?? g.name }}</option>
         </select>
       </div>
       <div>
@@ -71,6 +80,22 @@ async function handleCreate() {
           placeholder="例: サポート"
           class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500"
         />
+      </div>
+      <div>
+        <label class="block text-sm text-gray-400 mb-1">プレイスタイル（任意）</label>
+        <select v-model="playStyle" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white">
+          <option value="">未指定</option>
+          <option v-for="ps in PLAY_STYLES" :key="ps.id" :value="ps.id">{{ ps.name }}</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <input
+          v-model="hasMicrophone"
+          type="checkbox"
+          id="hasMicrophone"
+          class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-500 focus:ring-blue-500"
+        />
+        <label for="hasMicrophone" class="text-sm text-gray-400">マイクあり</label>
       </div>
       <div>
         <label class="block text-sm text-gray-400 mb-1">メモ（任意）</label>

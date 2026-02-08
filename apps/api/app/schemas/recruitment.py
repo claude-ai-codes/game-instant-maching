@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.models.recruitment import RecruitmentStatus
+from app.models.recruitment import PlayStyle, RecruitmentStatus
 
 
 class RecruitmentCreate(BaseModel):
@@ -12,6 +12,8 @@ class RecruitmentCreate(BaseModel):
     start_time: datetime
     desired_role: str | None = Field(default=None, max_length=50)
     memo: str | None = Field(default=None, max_length=200)
+    play_style: PlayStyle | None = None
+    has_microphone: bool = False
 
     @field_validator("start_time")
     @classmethod
@@ -32,9 +34,12 @@ class RecruitmentResponse(BaseModel):
     start_time: datetime
     desired_role: str | None
     memo: str | None
+    play_style: PlayStyle | None
+    has_microphone: bool
     status: RecruitmentStatus
     expires_at: datetime
     created_at: datetime
     nickname: str | None = None
+    thumbs_up_count: int = 0
 
     model_config = {"from_attributes": True}
