@@ -37,5 +37,12 @@ export const useRoomStore = defineStore('room', () => {
     })
   }
 
-  return { room, messages, fetchRoom, fetchMessages, sendMessage, closeRoom, submitFeedback }
+  const pendingFeedbackRoomIds = ref<string[]>([])
+
+  async function fetchPendingFeedback() {
+    const result = await api<{ room_id: string }[]>('/api/rooms/pending-feedback')
+    pendingFeedbackRoomIds.value = result.map(r => r.room_id)
+  }
+
+  return { room, messages, pendingFeedbackRoomIds, fetchRoom, fetchMessages, sendMessage, closeRoom, submitFeedback, fetchPendingFeedback }
 })

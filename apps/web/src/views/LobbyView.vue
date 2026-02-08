@@ -2,6 +2,7 @@
 import { useRecruitmentStore } from '@/stores/recruitment'
 import { useAuthStore } from '@/stores/auth'
 import { useGameStore } from '@/stores/game'
+import { useRoomStore } from '@/stores/room'
 import { useRouter } from 'vue-router'
 import { onMounted } from 'vue'
 import { usePolling } from '@/composables/usePolling'
@@ -12,11 +13,15 @@ import { ref } from 'vue'
 const store = useRecruitmentStore()
 const auth = useAuthStore()
 const gameStore = useGameStore()
+const roomStore = useRoomStore()
 const router = useRouter()
 const joining = ref<string | null>(null)
 const error = ref('')
 
-onMounted(() => gameStore.fetchGames())
+onMounted(() => {
+  gameStore.fetchGames()
+  roomStore.fetchPendingFeedback()
+})
 
 // WebSocket for real-time updates, with slower polling fallback
 const { on } = useWebSocket()
@@ -65,6 +70,25 @@ function formatTime(iso: string) {
       >
         募集を作成
       </router-link>
+    </div>
+
+    <div
+      v-if="roomStore.pendingFeedbackRoomIds.length > 0"
+      class="mb-4 p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg"
+    >
+      <p class="text-sm text-yellow-300 mb-2">
+        &#x1F44D; フィードバック未送信のルームがあります
+      </p>
+      <div class="flex gap-2 flex-wrap">
+        <router-link
+          v-for="rid in roomStore.pendingFeedbackRoomIds"
+          :key="rid"
+          :to="{ name: 'feedback', params: { id: rid } }"
+          class="px-3 py-1 bg-yellow-700 hover:bg-yellow-600 rounded text-xs text-white transition"
+        >
+          フィードバックを送る
+        </router-link>
+      </div>
     </div>
 
     <p v-if="error" class="mb-4 text-red-400 text-sm">{{ error }}</p>

@@ -239,3 +239,31 @@ async def submit_feedback(
     db.add(feedback)
     await db.commit()
     return {"detail": "Feedback submitted"}
+
+
+@router.get("/pending-feedback", response_model=list[dict])
+async def get_pending_feedback_rooms(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Return closed/expired rooms where the user has not yet submitted feedback."""
+    # Find rooms user is a member of that are closed/expired
+    closed_rooms_stmt = (
+        select(Room.id)
+        .join(RoomMember, RoomMember.room_id == Room.id)
+        .where(
+            RoomMember.user_id == user.id,
+            Room.status.in_([RoomStatus.closed, RoomStatus.expired]),
+        )
+    )
+    # Exclude rooms where user already gave feedback
+    already_feedbacked = select(Feedback.room_id).where(Feedback.from_user_id == user.id)
+    stmt = (
+        select(Room.id)
+        .where(Room.id.in_(closed_rooms_stmt), Room.id.not_in(already_feedbacked))
+        .order_by(Room.created_at.desc())
+        .limit(5)
+    )
+    result = await db.execute(stmt)
+    room_ids = result.scalars().all()
+    return [{"room_id": str(rid)} for rid in room_ids]
