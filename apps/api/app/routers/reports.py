@@ -1,10 +1,14 @@
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.report import Report
+from app.models.base import utcnow
+from app.models.report import Report, ReportStatus
 from app.models.room import Room, RoomMember
 from app.models.user import User
 from app.rate_limit import limiter
@@ -55,6 +59,25 @@ async def create_report(
         reason=reason,
     )
     db.add(report)
+    await db.flush()
+
+    # Auto-suspend if report threshold is reached
+    report_count_result = await db.execute(
+        select(func.count()).select_from(Report).where(
+            Report.reported_id == body.reported_id,
+            Report.status == ReportStatus.pending,
+        )
+    )
+    report_count = report_count_result.scalar() or 0
+
+    if report_count >= settings.report_threshold_for_suspension:
+        now = utcnow()
+        # Only set suspension if not already suspended further out
+        if not reported_user.suspended_until or reported_user.suspended_until < now:
+            reported_user.suspended_until = now + timedelta(
+                hours=settings.suspension_duration_hours
+            )
+
     await db.commit()
     await db.refresh(report)
     return report
