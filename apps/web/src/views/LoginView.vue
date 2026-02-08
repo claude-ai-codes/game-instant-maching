@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/composables/useApi'
@@ -12,6 +12,8 @@ const loading = ref(false)
 const turnstileSiteKey = ref('')
 const turnstileToken = ref('')
 let turnstileWidgetId: string | null = null
+
+const charCount = computed(() => nickname.value.length)
 
 onMounted(async () => {
   try {
@@ -82,29 +84,37 @@ async function handleLogin() {
 
 <template>
   <div class="flex items-center justify-center min-h-[70vh]">
-    <div class="bg-gray-800 rounded-lg p-8 w-full max-w-sm shadow-lg">
-      <h1 class="text-2xl font-bold text-center mb-6 text-blue-400">Game Instant Matching</h1>
+    <div class="bg-gray-800 rounded-xl p-8 w-full max-w-sm shadow-2xl shadow-black/40 border border-gray-700/50 gm-animate-scale">
+      <h1 class="text-2xl font-bold text-center mb-2 gm-gradient-text">Game Instant Matching</h1>
+      <p class="text-gray-500 text-xs text-center mb-6">1戦だけ、すぐに遊ぼう</p>
       <p class="text-gray-400 text-sm text-center mb-6">
         ニックネームを入力してすぐに始めよう
       </p>
       <form @submit.prevent="handleLogin" class="space-y-4">
-        <div>
+        <div class="relative">
           <input
             v-model="nickname"
             type="text"
             placeholder="ニックネーム"
             maxlength="20"
-            class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+            class="w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-colors"
             autofocus
           />
+          <span
+            v-if="charCount > 0"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500"
+          >
+            {{ charCount }}/20
+          </span>
         </div>
         <div v-if="turnstileSiteKey" id="turnstile-widget" class="flex justify-center"></div>
         <p v-if="error" class="text-red-400 text-sm">{{ error }}</p>
         <button
           type="submit"
           :disabled="loading"
-          class="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg font-medium transition"
+          class="w-full py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 disabled:opacity-50 rounded-lg font-medium transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2"
         >
+          <span v-if="loading" class="gm-spinner"></span>
           {{ loading ? 'ログイン中...' : 'はじめる' }}
         </button>
       </form>

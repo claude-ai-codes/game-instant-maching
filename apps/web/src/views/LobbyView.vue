@@ -66,7 +66,7 @@ function formatTime(iso: string) {
       <h1 class="text-xl font-bold">募集一覧</h1>
       <router-link
         to="/recruit"
-        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition"
+        class="px-5 py-2 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 rounded-lg text-sm font-medium transition-all shadow-lg shadow-indigo-500/20"
       >
         募集を作成
       </router-link>
@@ -93,23 +93,32 @@ function formatTime(iso: string) {
 
     <p v-if="error" class="mb-4 text-red-400 text-sm">{{ error }}</p>
 
-    <div v-if="store.recruitments.length === 0" class="text-center text-gray-500 py-12">
-      まだ募集がありません。最初の募集を作成しましょう！
+    <div v-if="store.recruitments.length === 0" class="text-center py-16 gm-animate-card">
+      <div class="text-5xl mb-4">&#x1F3AE;</div>
+      <p class="text-gray-400 mb-2">まだ募集がありません</p>
+      <p class="text-gray-500 text-sm mb-6">最初の募集を作成して、一緒に遊ぶ仲間を見つけよう</p>
+      <router-link
+        to="/recruit"
+        class="inline-block px-5 py-2 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 rounded-lg text-sm font-medium transition-all shadow-lg shadow-indigo-500/20"
+      >
+        募集を作成
+      </router-link>
     </div>
 
     <div class="space-y-3">
       <div
-        v-for="r in store.recruitments"
+        v-for="(r, index) in store.recruitments"
         :key="r.id"
-        class="bg-gray-800 rounded-lg p-4 border border-gray-700"
+        class="bg-gray-800 rounded-lg p-4 border border-gray-700/50 gm-card-hover gm-animate-card"
+        :style="{ animationDelay: `${index * 0.05}s` }"
       >
         <div class="flex items-start justify-between">
           <div>
-            <div class="flex items-center gap-2 mb-1">
-              <span class="font-medium text-blue-400">{{ gameStore.gameName(r.game) }}</span>
-              <span class="text-xs bg-gray-700 px-2 py-0.5 rounded text-gray-300">{{ regionName(r.region) }}</span>
-              <span v-if="r.play_style" class="text-xs bg-gray-700 px-2 py-0.5 rounded text-yellow-300">{{ playStyleName(r.play_style) }}</span>
-              <span v-if="r.has_microphone" class="text-xs bg-gray-700 px-2 py-0.5 rounded text-green-300">MIC</span>
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
+              <span class="font-medium text-cyan-400">{{ gameStore.gameName(r.game) }}</span>
+              <span class="text-xs bg-gray-700/80 px-2.5 py-0.5 rounded-full text-gray-300">{{ regionName(r.region) }}</span>
+              <span v-if="r.play_style" class="text-xs bg-yellow-900/40 px-2.5 py-0.5 rounded-full text-yellow-300 border border-yellow-700/30">{{ playStyleName(r.play_style) }}</span>
+              <span v-if="r.has_microphone" class="text-xs bg-green-900/40 px-2.5 py-0.5 rounded-full text-green-300 border border-green-700/30">MIC</span>
             </div>
             <div class="text-sm text-gray-400">
               <span>{{ r.nickname }}</span>
@@ -128,14 +137,15 @@ function formatTime(iso: string) {
               v-if="r.user_id !== auth.user?.id"
               @click="join(r.id)"
               :disabled="joining === r.id"
-              class="px-4 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded text-sm font-medium transition"
+              class="px-4 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg text-sm font-medium transition shadow-sm flex items-center gap-1.5"
             >
+              <span v-if="joining === r.id" class="gm-spinner" style="width:0.85em;height:0.85em;"></span>
               {{ joining === r.id ? '参加中...' : '参加する' }}
             </button>
             <button
               v-else
               @click="cancel(r.id)"
-              class="px-4 py-1.5 bg-red-600 hover:bg-red-700 rounded text-sm font-medium transition"
+              class="px-4 py-1.5 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-medium transition"
             >
               取り消し
             </button>
